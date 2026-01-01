@@ -1,33 +1,51 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+// You can replace these with your IconSymbol component
+const TabIcon = ({ name }: { name: string }) => <span>{name}</span>;
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+        tabBarActiveTintColor: '#007AFF',
+        tabBarInactiveTintColor: '#8E8E93',
+        headerShown: true,
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          tabBarIcon: ({ color }) => <TabIcon name="🏠" />,
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="SearchScreen"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Search',
+          tabBarIcon: ({ color }) => <TabIcon name="🔍" />,
+        }}
+      />
+      <Tabs.Screen
+        name="PostScreen"
+        options={{
+          title: 'Post',
+          tabBarIcon: ({ color }) => <TabIcon name="➕" />,
+        }}
+      />
+      <Tabs.Screen
+        name="BookmarkScreen"
+        options={{
+          title: 'Bookmark',
+          tabBarIcon: ({ color }) => <TabIcon name="🔖" />,
+        }}
+      />
+      <Tabs.Screen
+        name="ProfileScreen"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color }) => <TabIcon name="👤" />,
         }}
       />
     </Tabs>
