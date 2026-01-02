@@ -6,18 +6,28 @@ import {
     TouchableOpacity,
     StyleSheet,
     KeyboardAvoidingView,
-    Platform
+    Platform,
+    Alert
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { authService } from '@/services/api.service';
 
 export default function LoginScreen() {
     const router = useRouter();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    const handleLogin = () => {
-        // In a real app, validate credentials with backend
-        router.replace('/(tabs)');
+    const handleLogin = async () => {
+        setLoading(true);
+        try {
+            await authService.login({ email, password });
+            router.replace('/(tabs)');
+        } catch (error: any) {
+            Alert.alert('Login Failed', error.response?.data?.message || 'Invalid credentials');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (

@@ -11,6 +11,7 @@ import {
     Alert
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { authService } from '@/services/api.service';
 
 export default function RegisterScreen() {
     const router = useRouter();
@@ -18,8 +19,9 @@ export default function RegisterScreen() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    const handleRegister = () => {
+    const handleRegister = async () => {
         if (!name || !email || !password || !confirmPassword) {
             Alert.alert('Error', 'Please fill in all fields');
             return;
@@ -29,18 +31,15 @@ export default function RegisterScreen() {
             Alert.alert('Error', 'Passwords do not match');
             return;
         }
-
-        // In a real app, send data to backend
-        Alert.alert(
-            'Success!',
-            'Account created successfully',
-            [
-                {
-                    text: 'OK',
-                    onPress: () => router.replace('/(tabs)')
-                }
-            ]
-        );
+        setLoading(true);
+        try {
+            await authService.register({ name, email, password, password_confirmation: confirmPassword,});
+            router.replace('/(tabs)');
+        } catch (error: any) {
+            Alert.alert('Login Failed', error.response?.data?.message || 'Invalid credentials');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (

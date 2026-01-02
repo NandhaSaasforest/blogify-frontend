@@ -1,16 +1,32 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import BlogCard from '../../components/BlogCard';
-import { mockBlogs } from '../../data/mockData';
+import { bookmarkService } from '@/services/api.service';
 
 export default function BookmarkScreen() {
     const router = useRouter();
-    const bookmarkedBlogs = mockBlogs.filter(blog => blog.isBookmarked);
+    const [bookmarkedBlogs, getBookmarkedBlogs] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     const handleBlogPress = (blogId: string) => {
         router.push(`/blog/${blogId}`);
     };
+
+    useEffect(() => {
+        const loadBookmarks = async () => {
+            try {
+                const res = await bookmarkService.getBookmarks();
+                getBookmarkedBlogs(res.data);
+            } catch (error) {
+                console.log('Failed to load bookmarks', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadBookmarks();
+    }, []);
 
     return (
         <View style={styles.container}>

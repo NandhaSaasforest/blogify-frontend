@@ -1,21 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
     ScrollView,
     TouchableOpacity,
-    StyleSheet
+    StyleSheet,
+    Alert
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { mockBlogs } from '../../data/mockData';
+import { blogService, bookmarkService, followService } from '@/services/api.service';
 
 export default function BlogDetailScreen() {
-    const { id } = useLocalSearchParams();
-    const blog = mockBlogs.find(b => b.id === id);
+    const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+    const [blog, setBlog] = useState<any>(null);
+
+    useEffect(() => {
+        const blogId = Array.isArray(id) ? id[0] : id;
+        if (!blogId) return;
+
+        const getBlog = async () => {
+            try {
+                const res = await blogService.getBlog(blogId);
+                setBlog(res.data);
+            } catch (error) {
+                console.log('Failed to load blog', error);
+            }
+        };
+
+        getBlog();
+    }, [id]);
+
 
     const [isBookmarked, setIsBookmarked] = useState(blog?.isBookmarked || false);
     const [likes, setLikes] = useState(blog?.likes || 0);
     const [isLiked, setIsLiked] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [isFollowing, setIsFollowing] = useState(false);
+
 
     if (!blog) {
         return (
@@ -25,18 +46,52 @@ export default function BlogDetailScreen() {
         );
     }
 
-    const handleLike = () => {
-        if (isLiked) {
-            setLikes(likes - 1);
-            setIsLiked(false);
-        } else {
-            setLikes(likes + 1);
-            setIsLiked(true);
+    const handleLike = async () => {
+        try {
+            if (isLiked) {
+                await blogService.unlikeBlog(blog.id);
+                setLikes(likes - 1);
+                setIsLiked(false);
+            } else {
+                await blogService.likeBlog(blog.id);
+                setLikes(likes + 1);
+                setIsLiked(true);
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Failed to update like');
         }
     };
 
-    const handleBookmark = () => {
-        setIsBookmarked(!isBookmarked);
+    const handleBookmark = async () => {
+        try {
+            if (isBookmarked) {
+                await bookmarkService.removeBookmark(blog.id);
+                setIsBookmarked(false);
+            } else {
+                await bookmarkService.addBookmark(blog.id);
+                setIsBookmarked(true);
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Failed to update bookmark');
+        }
+    };
+
+    const handleFollowToggle = async () => {
+        try {
+            setLoading(true);
+
+            if (isFollowing) {
+                await followService.unfollowUser(blog.author.id);
+                setIsFollowing(false);
+            } else {
+                await followService.followUser(blog.author.id);
+                setIsFollowing(true);
+            }
+        } catch (error) {
+            console.log('Follow action failed', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -48,6 +103,13 @@ export default function BlogDetailScreen() {
                         <Text style={styles.authorName}>{blog.author.name}</Text>
                         <Text style={styles.date}>{blog.createdAt}</Text>
                     </View>
+
+                    <TouchableOpacity onPress={handleFollowToggle} disabled={loading}>
+                        <Text>
+                            {loading ? 'Please wait...' : isFollowing ? 'Unfollow' : 'Follow'}
+                        </Text>
+                    </TouchableOpacity>
+
                 </View>
             </View>
 

@@ -1,14 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import BlogCard from '../../components/BlogCard';
 import HashtagPill from '../../components/HashtagPill';
 import SearchBar from '../../components/SearchBar';
-import { mockBlogs, popularHashtags } from '../../data/mockData';
+import { blogService, hashtagService } from '@/services/api.service';
 
 export default function HomeScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
+
+  const [blogs, setBlogs] = useState([]);
+  const [popularHashtags, setPopularHashtags] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const [blogsData, hashtagsData] = await Promise.all([
+        blogService.getBlogs(),
+        hashtagService.getPopularHashtags(),
+      ]);
+      setBlogs(blogsData.data);
+      setPopularHashtags(hashtagsData);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSearchSubmit = () => {
     if (searchQuery.trim()) {
@@ -54,7 +78,7 @@ export default function HomeScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recent Blogs</Text>
-          {mockBlogs.map((blog) => (
+          {blogs.map((blog) => (
             <BlogCard
               key={blog.id}
               blog={blog}

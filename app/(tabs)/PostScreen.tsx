@@ -9,35 +9,27 @@ import {
     Alert
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { blogService } from '@/services/api.service';
 
 export default function PostScreen() {
     const router = useRouter();
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [hashtags, setHashtags] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    const handlePublish = () => {
-        if (!title.trim() || !content.trim()) {
-            Alert.alert('Missing Information', 'Please enter both title and content');
-            return;
+    const handlePublish = async () => {
+        setLoading(true);
+        try {
+            const hashtagArray = hashtags.split(/[\s,]+/).filter(tag => tag);
+            await blogService.createBlog({ title, content, hashtags: hashtagArray });
+            Alert.alert('Success!', 'Blog published');
+            router.push('/(tabs)');
+        } catch (error) {
+            Alert.alert('Error', 'Failed to publish');
+        } finally {
+            setLoading(false);
         }
-
-        // In a real app, this would send data to backend
-        Alert.alert(
-            'Success!',
-            'Your blog has been published',
-            [
-                {
-                    text: 'OK',
-                    onPress: () => {
-                        setTitle('');
-                        setContent('');
-                        setHashtags('');
-                        router.push('/(tabs)');
-                    }
-                }
-            ]
-        );
     };
 
     return (

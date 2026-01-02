@@ -1,39 +1,70 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
     ScrollView,
     TouchableOpacity,
-    StyleSheet
+    StyleSheet,
+    Alert
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { mockBlogs } from '../../data/mockData';
+import { authService, blogService } from '@/services/api.service';
 
 export default function ProfileScreen() {
     const router = useRouter();
+    const [user, setUser] = useState();
+    const [userBlogs, setUserBlogs] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-    const user = {
-        name: 'John Doe',
-        email: 'john.doe@example.com',
-        avatar: '👨‍💻',
-        bio: 'Mobile developer passionate about React Native',
-        joinDate: 'January 2024'
-    };
+    useEffect(() => {
+        const loadUser = async () => {
+            try {
+                const res = await authService.getCurrentUser();
+                setUser(res.data);
+            } catch (error) {
+                console.log('Failed to load user', error);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-    const userBlogs = mockBlogs.filter(blog => blog.author.id === 'u1');
+        loadUser();
+    }, []);
 
-    const handleLogout = () => {
-        router.replace('/auth/login');
+    useEffect(() => {
+        if (!user?.id) return;
+
+        const getMyBlogs = async () => {
+            try {
+                const res = await blogService.getBlogs({ user_id: user.id });
+                setUserBlogs(res.data);
+            } catch (error) {
+                console.log('Failed to load blogs', error);
+            }
+        };
+
+        getMyBlogs();
+    }, [user]);
+
+
+
+    const handleLogout = async () => {
+        try {
+            await authService.logout();
+            router.replace('/auth/login');
+        } catch (error: any) {
+            Alert.alert('Logout Failed', error.response?.data?.message || 'Logout failed');
+        }
     };
 
     return (
         <ScrollView style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.avatar}>{user.avatar}</Text>
-                <Text style={styles.name}>{user.name}</Text>
-                <Text style={styles.email}>{user.email}</Text>
-                <Text style={styles.bio}>{user.bio}</Text>
-                <Text style={styles.joinDate}>Joined {user.joinDate}</Text>
+                <Text style={styles.avatar}>{user?.avatar}</Text>
+                <Text style={styles.name}>{user?.name}</Text>
+                <Text style={styles.email}>{user?.email}</Text>
+                <Text style={styles.bio}>{user?.bio}</Text>
+                <Text style={styles.joinDate}>Joined {user?.joinDate}</Text>
             </View>
 
             <View style={styles.stats}>
@@ -42,11 +73,11 @@ export default function ProfileScreen() {
                     <Text style={styles.statLabel}>Posts</Text>
                 </View>
                 <View style={styles.stat}>
-                    <Text style={styles.statNumber}>2</Text>
+                    <Text style={styles.statNumber}>{user?.followersCount}</Text>
                     <Text style={styles.statLabel}>Followers</Text>
                 </View>
                 <View style={styles.stat}>
-                    <Text style={styles.statNumber}>5</Text>
+                    <Text style={styles.statNumber}>{user?.followingCount}</Text>
                     <Text style={styles.statLabel}>Following</Text>
                 </View>
             </View>
