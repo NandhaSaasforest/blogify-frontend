@@ -56,6 +56,11 @@ export const blogService = {
         const response = await api.post(`/blogs/${id}/unlike`);
         return response.data;
     },
+
+    async getBlogStatus(id: string) {
+        const response = await api.get(`/blogs/${id}/status`);
+        return response.data;
+    },
 };
 
 export const followService = {

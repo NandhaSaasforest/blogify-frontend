@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { blogService } from '@/services/api.service';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function PostScreen() {
     const router = useRouter();
@@ -17,6 +18,11 @@ export default function PostScreen() {
     const [content, setContent] = useState('');
     const [hashtags, setHashtags] = useState('');
     const [loading, setLoading] = useState(false);
+    const { isLoading, user } = useAuth();
+
+    if (isLoading) {
+        return <View><Text>Loading...</Text></View>;
+    }
 
     const handlePublish = async () => {
         setLoading(true);

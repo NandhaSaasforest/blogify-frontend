@@ -9,27 +9,12 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { authService, blogService } from '@/services/api.service';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function ProfileScreen() {
     const router = useRouter();
-    const [user, setUser] = useState();
     const [userBlogs, setUserBlogs] = useState([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const loadUser = async () => {
-            try {
-                const res = await authService.getCurrentUser();
-                setUser(res.data);
-            } catch (error) {
-                console.log('Failed to load user', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        loadUser();
-    }, []);
+    const { isLoading, user } = useAuth();
 
     useEffect(() => {
         if (!user?.id) return;
@@ -46,7 +31,9 @@ export default function ProfileScreen() {
         getMyBlogs();
     }, [user]);
 
-
+    if (isLoading) {
+        return <View><Text>Loading...</Text></View>;
+    }
 
     const handleLogout = async () => {
         try {

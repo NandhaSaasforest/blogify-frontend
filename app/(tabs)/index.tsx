@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import BlogCard from '../../components/BlogCard';
 import HashtagPill from '../../components/HashtagPill';
 import SearchBar from '../../components/SearchBar';
@@ -14,10 +15,11 @@ export default function HomeScreen() {
   const [popularHashtags, setPopularHashtags] = useState([]);
   const [loading, setLoading] = useState(true);
 
-
-  useEffect(() => {
-    loadData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
 
   const loadData = async () => {
     try {

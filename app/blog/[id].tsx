@@ -9,33 +9,46 @@ import {
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { blogService, bookmarkService, followService } from '@/services/api.service';
+import { useAuthCheck } from '@/hooks/useAuth';
 
 export default function BlogDetailScreen() {
     const { id } = useLocalSearchParams<{ id?: string | string[] }>();
     const [blog, setBlog] = useState<any>(null);
+    const [isBookmarked, setIsBookmarked] = useState(false);
+    const [likes, setLikes] = useState(0);
+    const [isLiked, setIsLiked] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const { checkAuth, user, isAuthLoading } = useAuthCheck();
+    const [isFollowing, setIsFollowing] = useState(false);
 
     useEffect(() => {
         const blogId = Array.isArray(id) ? id[0] : id;
         if (!blogId) return;
 
-        const getBlog = async () => {
+        const loadBlogData = async () => {
             try {
                 const res = await blogService.getBlog(blogId);
-                setBlog(res.data);
+                const blogData = res.data ?? res;
+                setBlog(blogData);
+                setLikes(blogData.likes_count ?? blogData.likes ?? 0);
+                setIsFollowing(blogData.author?.is_following ?? blogData.author?.isFollowing ?? false);
+
+                if (user) {
+                    try {
+                        const status = await blogService.getBlogStatus(blogId);
+                        setIsLiked(status.is_liked ?? false);
+                        setIsBookmarked(status.is_bookmarked ?? false);
+                    } catch (err) {
+                        console.log('Could not fetch blog status', err);
+                    }
+                }
             } catch (error) {
                 console.log('Failed to load blog', error);
             }
         };
 
-        getBlog();
-    }, [id]);
-
-
-    const [isBookmarked, setIsBookmarked] = useState(blog?.isBookmarked || false);
-    const [likes, setLikes] = useState(blog?.likes || 0);
-    const [isLiked, setIsLiked] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [isFollowing, setIsFollowing] = useState(false);
+        loadBlogData();
+    }, [id, user]);
 
 
     if (!blog) {
@@ -47,6 +60,8 @@ export default function BlogDetailScreen() {
     }
 
     const handleLike = async () => {
+        if (!checkAuth()) return;
+
         try {
             if (isLiked) {
                 await blogService.unlikeBlog(blog.id);
@@ -63,6 +78,8 @@ export default function BlogDetailScreen() {
     };
 
     const handleBookmark = async () => {
+        if (!checkAuth()) return;
+
         try {
             if (isBookmarked) {
                 await bookmarkService.removeBookmark(blog.id);
@@ -77,6 +94,7 @@ export default function BlogDetailScreen() {
     };
 
     const handleFollowToggle = async () => {
+        if (!checkAuth()) return;
         try {
             setLoading(true);
 
@@ -97,21 +115,24 @@ export default function BlogDetailScreen() {
     return (
         <ScrollView style={styles.container}>
             <View style={styles.header}>
-                <View style={styles.authorSection}>
-                    <Text style={styles.avatar}>{blog.author.avatar}</Text>
-                    <View>
-                        <Text style={styles.authorName}>{blog.author.name}</Text>
-                        <Text style={styles.date}>{blog.createdAt}</Text>
+                <View style={styles.authorRow}>
+                    <View style={styles.authorSection}>
+                        <Text style={styles.avatar}>{blog.author.avatar}</Text>
+
+                        <View>
+                            <Text style={styles.authorName}>{blog.author.name}</Text>
+                            <Text style={styles.date}>{blog.createdAt}</Text>
+                        </View>
                     </View>
 
-                    <TouchableOpacity onPress={handleFollowToggle} disabled={loading}>
-                        <Text>
+                    <TouchableOpacity onPress={handleFollowToggle} disabled={loading || isAuthLoading}>
+                        <Text style={styles.followButton}>
                             {loading ? 'Please wait...' : isFollowing ? 'Unfollow' : 'Follow'}
                         </Text>
                     </TouchableOpacity>
-
                 </View>
             </View>
+
 
             <View style={styles.body}>
                 <Text style={styles.title}>{blog.title}</Text>
@@ -158,9 +179,14 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: '#E0E0E0',
     },
+    authorRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
     authorSection: {
         flexDirection: 'row',
         alignItems: 'center',
+        flex: 1,
     },
     avatar: {
         fontSize: 48,
@@ -170,6 +196,10 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '600',
         color: '#333',
+    },
+    followButton: {
+        fontSize: 16,
+        color: '#007AFF',
     },
     date: {
         fontSize: 14,
