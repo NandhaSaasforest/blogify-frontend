@@ -61,20 +61,61 @@ export const blogService = {
         const response = await api.get(`/blogs/${id}/status`);
         return response.data;
     },
+
+    async getComments(blogId: string) {
+        const response = await api.get(`/blogs/${blogId}/comments`);
+        return response.data;
+    },
+
+    async addComment(blogId: string, data: { content: string }) {
+        const response = await api.post(`/blogs/${blogId}/comments`, data);
+        return response.data;
+    },
+
+    async addReply(blogId: string, commentId: string, data: { content: string }) {
+        const response = await api.post(
+            `/blogs/${blogId}/comments/${commentId}/replies`,
+            data
+        );
+        return response.data;
+    },
+
+    async deleteComment(blogId: string, commentId: string) {
+        const response = await api.delete(`/blogs/${blogId}/comments/${commentId}`);
+        return response.data;
+    },
+
+    async editComment(blogId: string, commentId: string, data: { content: string }) {
+        const response = await api.put(
+            `/blogs/${blogId}/comments/${commentId}`,
+            data
+        );
+        return response.data;
+    },
+
+    async likeComment(blogId: string, commentId: string) {
+        const response = await api.post(`/blogs/${blogId}/comments/${commentId}/like`);
+        return response.data;
+    },
+
+    async unlikeComment(blogId: string, commentId: string) {
+        const response = await api.delete(`/blogs/${blogId}/comments/${commentId}/like`);
+        return response.data;
+    },
 };
 
 export const followService = {
-  // Follow a user
-  async followUser(userId: number | string) {
-    const response = await api.post(`/users/${userId}/follow`);
-    return response.data;
-  },
+    // Follow a user
+    async followUser(userId: number | string) {
+        const response = await api.post(`/users/${userId}/follow`);
+        return response.data;
+    },
 
-  // Unfollow a user
-  async unfollowUser(userId: number | string) {
-    const response = await api.delete(`/users/${userId}/follow`);
-    return response.data;
-  },
+    // Unfollow a user
+    async unfollowUser(userId: number | string) {
+        const response = await api.delete(`/users/${userId}/follow`);
+        return response.data;
+    },
 };
 
 

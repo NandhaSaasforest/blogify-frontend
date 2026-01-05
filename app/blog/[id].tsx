@@ -5,11 +5,27 @@ import {
     ScrollView,
     TouchableOpacity,
     StyleSheet,
-    Alert
+    Alert,
+    TextInput,
+    KeyboardAvoidingView,
+    Platform
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { blogService, bookmarkService, followService } from '@/services/api.service';
 import { useAuthCheck } from '@/hooks/useAuth';
+
+interface Comment {
+    id: string;
+    content: string;
+    author: {
+        id: string;
+        name: string;
+        avatar: string;
+    };
+    createdAt: string;
+    replies?: Comment[];
+    isAuthorReply?: boolean;
+}
 
 export default function BlogDetailScreen() {
     const { id } = useLocalSearchParams<{ id?: string | string[] }>();
@@ -20,6 +36,13 @@ export default function BlogDetailScreen() {
     const [loading, setLoading] = useState(false);
     const { checkAuth, user, isAuthLoading } = useAuthCheck();
     const [isFollowing, setIsFollowing] = useState(false);
+    
+    // Comment states
+    const [comments, setComments] = useState<Comment[]>([]);
+    const [commentText, setCommentText] = useState('');
+    const [replyingTo, setReplyingTo] = useState<string | null>(null);
+    const [replyText, setReplyText] = useState('');
+    const [submittingComment, setSubmittingComment] = useState(false);
 
     useEffect(() => {
         const blogId = Array.isArray(id) ? id[0] : id;
@@ -42,6 +65,9 @@ export default function BlogDetailScreen() {
                         console.log('Could not fetch blog status', err);
                     }
                 }
+
+                // Load comments
+                await loadComments(blogId);
             } catch (error) {
                 console.log('Failed to load blog', error);
             }
@@ -50,6 +76,14 @@ export default function BlogDetailScreen() {
         loadBlogData();
     }, [id, user]);
 
+    const loadComments = async (blogId: string) => {
+        try {
+            const response = await blogService.getComments(blogId);
+            setComments(response.data ?? response);
+        } catch (error) {
+            console.log('Failed to load comments', error);
+        }
+    };
 
     if (!blog) {
         return (
@@ -112,60 +146,217 @@ export default function BlogDetailScreen() {
         }
     };
 
-    return (
-        <ScrollView style={styles.container}>
-            <View style={styles.header}>
-                <View style={styles.authorRow}>
-                    <View style={styles.authorSection}>
-                        <Text style={styles.avatar}>{blog.author.avatar}</Text>
+    const handleSubmitComment = async () => {
+        if (!checkAuth()) return;
+        if (!commentText.trim()) return;
 
-                        <View>
-                            <Text style={styles.authorName}>{blog.author.name}</Text>
-                            <Text style={styles.date}>{blog.createdAt}</Text>
+        try {
+            setSubmittingComment(true);
+            await blogService.addComment(blog.id, { content: commentText });
+            setCommentText('');
+            await loadComments(blog.id);
+            Alert.alert('Success', 'Comment posted successfully');
+        } catch (error) {
+            Alert.alert('Error', 'Failed to post comment');
+        } finally {
+            setSubmittingComment(false);
+        }
+    };
+
+    const handleSubmitReply = async (commentId: string) => {
+        if (!checkAuth()) return;
+        if (!replyText.trim()) return;
+
+        try {
+            setSubmittingComment(true);
+            await blogService.addReply(blog.id, commentId, { content: replyText });
+            setReplyText('');
+            setReplyingTo(null);
+            await loadComments(blog.id);
+            Alert.alert('Success', 'Reply posted successfully');
+        } catch (error) {
+            Alert.alert('Error', 'Failed to post reply');
+        } finally {
+            setSubmittingComment(false);
+        }
+    };
+
+    const renderComment = (comment: Comment, isReply: boolean = false) => {
+        const isAuthor = comment.author.id === blog.author.id;
+        const showReplyBox = replyingTo === comment.id;
+
+        return (
+            <View key={comment.id} style={[styles.commentContainer, isReply && styles.replyContainer]}>
+                <View style={styles.commentHeader}>
+                    <View style={styles.commentAuthorSection}>
+                        <Text style={styles.commentAvatar}>{comment.author.avatar}</Text>
+                        <View style={styles.commentAuthorInfo}>
+                            <View style={styles.nameRow}>
+                                <Text style={styles.commentAuthorName}>{comment.author.name}</Text>
+                                {isAuthor && (
+                                    <View style={styles.authorBadge}>
+                                        <Text style={styles.authorBadgeText}>Author</Text>
+                                    </View>
+                                )}
+                            </View>
+                            <Text style={styles.commentDate}>{comment.createdAt}</Text>
                         </View>
                     </View>
+                </View>
 
-                    <TouchableOpacity onPress={handleFollowToggle} disabled={loading || isAuthLoading}>
-                        <Text style={styles.followButton}>
-                            {loading ? 'Please wait...' : isFollowing ? 'Unfollow' : 'Follow'}
+                <Text style={styles.commentContent}>{comment.content}</Text>
+
+                {!isReply && (
+                    <TouchableOpacity 
+                        style={styles.replyButton}
+                        onPress={() => setReplyingTo(showReplyBox ? null : comment.id)}
+                    >
+                        <Text style={styles.replyButtonText}>
+                            {showReplyBox ? 'Cancel' : 'Reply'}
+                        </Text>
+                    </TouchableOpacity>
+                )}
+
+                {showReplyBox && (
+                    <View style={styles.replyInputContainer}>
+                        <TextInput
+                            style={styles.replyInput}
+                            placeholder={`Reply to ${comment.author.name}...`}
+                            value={replyText}
+                            onChangeText={setReplyText}
+                            multiline
+                            maxLength={500}
+                        />
+                        <View style={styles.replyInputActions}>
+                            <TouchableOpacity
+                                style={styles.cancelReplyButton}
+                                onPress={() => {
+                                    setReplyingTo(null);
+                                    setReplyText('');
+                                }}
+                            >
+                                <Text style={styles.cancelReplyText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.submitReplyButton, !replyText.trim() && styles.submitDisabled]}
+                                onPress={() => handleSubmitReply(comment.id)}
+                                disabled={!replyText.trim() || submittingComment}
+                            >
+                                <Text style={styles.submitReplyText}>
+                                    {submittingComment ? 'Posting...' : 'Post'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
+
+                {comment.replies && comment.replies.length > 0 && (
+                    <View style={styles.repliesContainer}>
+                        {comment.replies.map(reply => renderComment(reply, true))}
+                    </View>
+                )}
+            </View>
+        );
+    };
+
+    return (
+        <KeyboardAvoidingView 
+            style={styles.container}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+            <ScrollView style={styles.scrollView}>
+                <View style={styles.header}>
+                    <View style={styles.authorRow}>
+                        <View style={styles.authorSection}>
+                            <Text style={styles.avatar}>{blog.author.avatar}</Text>
+
+                            <View>
+                                <Text style={styles.authorName}>{blog.author.name}</Text>
+                                <Text style={styles.date}>{blog.createdAt}</Text>
+                            </View>
+                        </View>
+
+                        <TouchableOpacity onPress={handleFollowToggle} disabled={loading || isAuthLoading}>
+                            <Text style={styles.followButton}>
+                                {loading ? 'Please wait...' : isFollowing ? 'Unfollow' : 'Follow'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                <View style={styles.body}>
+                    <Text style={styles.title}>{blog.title}</Text>
+
+                    <View style={styles.hashtags}>
+                        {blog.hashtags.map((tag, index) => (
+                            <Text key={index} style={styles.hashtag}>{tag}</Text>
+                        ))}
+                    </View>
+
+                    <Text style={styles.contentText}>{blog.content}</Text>
+                </View>
+
+                <View style={styles.actions}>
+                    <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={handleLike}
+                    >
+                        <Text style={styles.actionIcon}>{isLiked ? '❤️' : '🤍'}</Text>
+                        <Text style={styles.actionText}>{likes} Likes</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={handleBookmark}
+                    >
+                        <Text style={styles.actionIcon}>{isBookmarked ? '🔖' : '📑'}</Text>
+                        <Text style={styles.actionText}>
+                            {isBookmarked ? 'Saved' : 'Save'}
                         </Text>
                     </TouchableOpacity>
                 </View>
-            </View>
 
+                {/* Comments Section */}
+                <View style={styles.commentsSection}>
+                    <Text style={styles.commentsTitle}>
+                        Comments ({comments.length})
+                    </Text>
 
-            <View style={styles.body}>
-                <Text style={styles.title}>{blog.title}</Text>
-
-                <View style={styles.hashtags}>
-                    {blog.hashtags.map((tag, index) => (
-                        <Text key={index} style={styles.hashtag}>{tag}</Text>
-                    ))}
+                    {comments.length === 0 ? (
+                        <View style={styles.noComments}>
+                            <Text style={styles.noCommentsText}>
+                                No comments yet. Be the first to share your thoughts!
+                            </Text>
+                        </View>
+                    ) : (
+                        <View style={styles.commentsList}>
+                            {comments.map(comment => renderComment(comment))}
+                        </View>
+                    )}
                 </View>
+            </ScrollView>
 
-                <Text style={styles.contentText}>{blog.content}</Text>
-            </View>
-
-            <View style={styles.actions}>
+            {/* Comment Input */}
+            <View style={styles.commentInputContainer}>
+                <TextInput
+                    style={styles.commentInput}
+                    placeholder="Write a comment..."
+                    value={commentText}
+                    onChangeText={setCommentText}
+                    multiline
+                    maxLength={1000}
+                />
                 <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={handleLike}
+                    style={[styles.sendButton, !commentText.trim() && styles.sendButtonDisabled]}
+                    onPress={handleSubmitComment}
+                    disabled={!commentText.trim() || submittingComment}
                 >
-                    <Text style={styles.actionIcon}>{isLiked ? '❤️' : '🤍'}</Text>
-                    <Text style={styles.actionText}>{likes} Likes</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={handleBookmark}
-                >
-                    <Text style={styles.actionIcon}>{isBookmarked ? '🔖' : '📑'}</Text>
-                    <Text style={styles.actionText}>
-                        {isBookmarked ? 'Saved' : 'Save'}
+                    <Text style={styles.sendButtonText}>
+                        {submittingComment ? '⏳' : '📤'}
                     </Text>
                 </TouchableOpacity>
             </View>
-        </ScrollView>
+        </KeyboardAvoidingView>
     );
 }
 
@@ -173,6 +364,9 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff',
+    },
+    scrollView: {
+        flex: 1,
     },
     header: {
         padding: 16,
@@ -252,5 +446,188 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#333',
         fontWeight: '500',
+    },
+    // Comments Section
+    commentsSection: {
+        borderTopWidth: 8,
+        borderTopColor: '#F5F5F5',
+        paddingTop: 16,
+        paddingHorizontal: 16,
+        paddingBottom: 100,
+    },
+    commentsTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#000',
+        marginBottom: 16,
+    },
+    noComments: {
+        paddingVertical: 40,
+        alignItems: 'center',
+    },
+    noCommentsText: {
+        fontSize: 15,
+        color: '#999',
+        textAlign: 'center',
+    },
+    commentsList: {
+        gap: 16,
+    },
+    commentContainer: {
+        backgroundColor: '#FAFAFA',
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 8,
+    },
+    replyContainer: {
+        marginLeft: 24,
+        backgroundColor: '#F0F0F0',
+        borderLeftWidth: 3,
+        borderLeftColor: '#007AFF',
+    },
+    commentHeader: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    commentAuthorSection: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        flex: 1,
+    },
+    commentAvatar: {
+        fontSize: 32,
+        marginRight: 10,
+    },
+    commentAuthorInfo: {
+        flex: 1,
+    },
+    nameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    commentAuthorName: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#000',
+    },
+    authorBadge: {
+        backgroundColor: '#007AFF',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 4,
+    },
+    authorBadgeText: {
+        fontSize: 11,
+        fontWeight: '600',
+        color: '#fff',
+    },
+    commentDate: {
+        fontSize: 13,
+        color: '#999',
+        marginTop: 2,
+    },
+    commentContent: {
+        fontSize: 15,
+        color: '#333',
+        lineHeight: 22,
+        marginBottom: 8,
+    },
+    replyButton: {
+        alignSelf: 'flex-start',
+        paddingVertical: 4,
+    },
+    replyButtonText: {
+        fontSize: 14,
+        color: '#007AFF',
+        fontWeight: '600',
+    },
+    repliesContainer: {
+        marginTop: 12,
+        gap: 8,
+    },
+    replyInputContainer: {
+        marginTop: 12,
+        backgroundColor: '#fff',
+        borderRadius: 8,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
+    },
+    replyInput: {
+        fontSize: 15,
+        color: '#333',
+        minHeight: 60,
+        maxHeight: 120,
+        textAlignVertical: 'top',
+    },
+    replyInputActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 8,
+        marginTop: 8,
+    },
+    cancelReplyButton: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+    },
+    cancelReplyText: {
+        fontSize: 14,
+        color: '#666',
+        fontWeight: '600',
+    },
+    submitReplyButton: {
+        backgroundColor: '#007AFF',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 6,
+    },
+    submitReplyText: {
+        fontSize: 14,
+        color: '#fff',
+        fontWeight: '600',
+    },
+    submitDisabled: {
+        backgroundColor: '#CCC',
+    },
+    // Comment Input at Bottom
+    commentInputContainer: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        padding: 12,
+        backgroundColor: '#fff',
+        borderTopWidth: 1,
+        borderTopColor: '#E0E0E0',
+        gap: 8,
+    },
+    commentInput: {
+        flex: 1,
+        backgroundColor: '#F5F5F5',
+        borderRadius: 20,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        fontSize: 15,
+        maxHeight: 100,
+        color: '#333',
+    },
+    sendButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#007AFF',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    sendButtonDisabled: {
+        backgroundColor: '#CCC',
+    },
+    sendButtonText: {
+        fontSize: 20,
     },
 });
