@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import BlogCard from '../../components/BlogCard';
 import { bookmarkService } from '@/services/api.service';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function BookmarkScreen() {
     const router = useRouter();
@@ -13,20 +14,22 @@ export default function BookmarkScreen() {
         router.push(`/blog/${blogId}`);
     };
 
-    useEffect(() => {
-        const loadBookmarks = async () => {
-            try {
-                const res = await bookmarkService.getBookmarks();
-                getBookmarkedBlogs(res.data);
-            } catch (error) {
-                console.log('Failed to load bookmarks', error);
-            } finally {
-                setLoading(false);
-            }
-        };
+    useFocusEffect(
+        useCallback(() => {
+            const loadBookmarks = async () => {
+                try {
+                    const res = await bookmarkService.getBookmarks();
+                    getBookmarkedBlogs(res.data);
+                } catch (error) {
+                    console.log('Failed to load bookmarks', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
 
-        loadBookmarks();
-    }, []);
+            loadBookmarks();
+        }, [])
+    );
 
     return (
         <View style={styles.container}>

@@ -1,33 +1,46 @@
 // hooks/useAuth.js
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { authService } from '@/services/api.service';
+import { useFocusEffect } from '@react-navigation/native';
 
 export const useAuth = (redirectTo = '/auth/login') => {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(true);
     const [user, setUser] = useState(null);
 
-    useEffect(() => {
-        const checkAuth = async () => {
-            try {
-                const res = await authService.getCurrentUser();
-                const userData = res?.data ?? res;
-                if (!userData) {
-                    router.replace(redirectTo);
-                } else {
-                    setUser(userData);
-                }
-            } catch (error) {
+    const checkAuth = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const res = await authService.getCurrentUser();
+            const userData = res?.data ?? res;
+            if (!userData) {
+                setUser(null);
                 router.replace(redirectTo);
-            } finally {
-                setIsLoading(false);
+            } else {
+                setUser(userData);
             }
-        };
-        checkAuth();
-    }, []);
+        } catch (error) {
+            setUser(null);
+            router.replace(redirectTo);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [redirectTo]);
 
-    return { isLoading, user };
+    // Check auth on mount
+    useEffect(() => {
+        checkAuth();
+    }, [checkAuth]);
+
+    // Re-check auth whenever screen comes into focus
+    useFocusEffect(
+        useCallback(() => {
+            checkAuth();
+        }, [checkAuth])
+    );
+
+    return { isLoading, user, refetchUser: checkAuth };
 };
 
 export const useAuthCheck = () => {

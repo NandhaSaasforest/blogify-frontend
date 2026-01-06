@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
@@ -10,26 +10,35 @@ import {
 import { useRouter } from 'expo-router';
 import { authService, blogService } from '@/services/api.service';
 import { useAuth } from '@/hooks/useAuth';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function ProfileScreen() {
     const router = useRouter();
     const [userBlogs, setUserBlogs] = useState([]);
     const { isLoading, user } = useAuth();
 
-    useEffect(() => {
-        if (!user?.id) return;
+    useFocusEffect(
+        useCallback(() => {
+            if (!user?.id) return;
 
-        const getMyBlogs = async () => {
-            try {
-                const res = await blogService.getBlogs({ user_id: user.id });
-                setUserBlogs(res.data);
-            } catch (error) {
-                console.log('Failed to load blogs', error);
-            }
-        };
+            const getMyBlogs = async () => {
+                try {
+                    const res = await blogService.getBlogs({ user_id: user.id });
+                    setUserBlogs(res.data);
+                } catch (error) {
+                    console.log('Failed to load blogs', error);
+                }
+            };
 
-        getMyBlogs();
-    }, [user]);
+            getMyBlogs();
+
+            // Optional cleanup
+            return () => {
+                // cleanup if needed
+            };
+        }, [user?.id])
+    );
+
 
     if (isLoading) {
         return <View><Text>Loading...</Text></View>;
@@ -38,7 +47,7 @@ export default function ProfileScreen() {
     const handleLogout = async () => {
         try {
             await authService.logout();
-            router.replace('/auth/login');
+            router.replace('/(tabs)');
         } catch (error: any) {
             Alert.alert('Logout Failed', error.response?.data?.message || 'Logout failed');
         }

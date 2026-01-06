@@ -64,10 +64,10 @@ export default function BlogDetailScreen() {
                     } catch (err) {
                         console.log('Could not fetch blog status', err);
                     }
-                }
 
-                // Load comments
-                await loadComments(blogId);
+                    // Load comments only for logged in users
+                    await loadComments(blogId);
+                }
             } catch (error) {
                 console.log('Failed to load blog', error);
             }
@@ -179,6 +179,15 @@ export default function BlogDetailScreen() {
         } finally {
             setSubmittingComment(false);
         }
+    };
+
+    const handleLoginPrompt = () => {
+        Alert.alert(
+            'Login Required',
+            'Please login to view and post comments',
+            [{ text: 'OK' }]
+        );
+        checkAuth();
     };
 
     const renderComment = (comment: Comment, isReply: boolean = false) => {
@@ -319,10 +328,25 @@ export default function BlogDetailScreen() {
                 {/* Comments Section */}
                 <View style={styles.commentsSection}>
                     <Text style={styles.commentsTitle}>
-                        Comments ({comments.length})
+                        Comments {user && `(${comments.length})`}
                     </Text>
 
-                    {comments.length === 0 ? (
+                    {!user ? (
+                        // Login prompt for non-authenticated users
+                        <TouchableOpacity 
+                            style={styles.loginPromptContainer}
+                            onPress={handleLoginPrompt}
+                        >
+                            <Text style={styles.loginPromptIcon}>🔒</Text>
+                            <Text style={styles.loginPromptTitle}>Login to see comments</Text>
+                            <Text style={styles.loginPromptSubtitle}>
+                                Join the conversation by logging in
+                            </Text>
+                            <View style={styles.loginPromptButton}>
+                                <Text style={styles.loginPromptButtonText}>Login</Text>
+                            </View>
+                        </TouchableOpacity>
+                    ) : comments.length === 0 ? (
                         <View style={styles.noComments}>
                             <Text style={styles.noCommentsText}>
                                 No comments yet. Be the first to share your thoughts!
@@ -336,26 +360,28 @@ export default function BlogDetailScreen() {
                 </View>
             </ScrollView>
 
-            {/* Comment Input */}
-            <View style={styles.commentInputContainer}>
-                <TextInput
-                    style={styles.commentInput}
-                    placeholder="Write a comment..."
-                    value={commentText}
-                    onChangeText={setCommentText}
-                    multiline
-                    maxLength={1000}
-                />
-                <TouchableOpacity
-                    style={[styles.sendButton, !commentText.trim() && styles.sendButtonDisabled]}
-                    onPress={handleSubmitComment}
-                    disabled={!commentText.trim() || submittingComment}
-                >
-                    <Text style={styles.sendButtonText}>
-                        {submittingComment ? '⏳' : '📤'}
-                    </Text>
-                </TouchableOpacity>
-            </View>
+            {/* Comment Input - Only show for logged in users */}
+            {user && (
+                <View style={styles.commentInputContainer}>
+                    <TextInput
+                        style={styles.commentInput}
+                        placeholder="Write a comment..."
+                        value={commentText}
+                        onChangeText={setCommentText}
+                        multiline
+                        maxLength={1000}
+                    />
+                    <TouchableOpacity
+                        style={[styles.sendButton, !commentText.trim() && styles.sendButtonDisabled]}
+                        onPress={handleSubmitComment}
+                        disabled={!commentText.trim() || submittingComment}
+                    >
+                        <Text style={styles.sendButtonText}>
+                            {submittingComment ? '⏳' : '📤'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            )}
         </KeyboardAvoidingView>
     );
 }
@@ -460,6 +486,44 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#000',
         marginBottom: 16,
+    },
+    // Login Prompt Styles
+    loginPromptContainer: {
+        backgroundColor: '#F8F9FA',
+        borderRadius: 16,
+        padding: 40,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
+        marginVertical: 20,
+    },
+    loginPromptIcon: {
+        fontSize: 48,
+        marginBottom: 16,
+    },
+    loginPromptTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#000',
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    loginPromptSubtitle: {
+        fontSize: 15,
+        color: '#666',
+        textAlign: 'center',
+        marginBottom: 24,
+    },
+    loginPromptButton: {
+        backgroundColor: '#007AFF',
+        paddingHorizontal: 32,
+        paddingVertical: 12,
+        borderRadius: 24,
+    },
+    loginPromptButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#fff',
     },
     noComments: {
         paddingVertical: 40,
